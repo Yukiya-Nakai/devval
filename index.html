@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>偏差値計算ウェブアプリ</title>
+    <!-- Tailwind CSS CDNを読み込み -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 日本語フォントを優先し、見た目を調整 */
+        body {
+            font-family: "Inter", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            background-color: #f7f9fb;
+        }
+        /* スクロールバーのデザインを調整 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 md:p-10 transition-all duration-300">
+        <h1 class="text-3xl font-extrabold text-center text-indigo-700 mb-6 border-b-2 pb-3">
+            偏差値 (T値) 計算機
+        </h1>
+        <p class="text-center text-gray-600 mb-8">
+            改行区切りで点数データを入力してください。（例: 85, 72.5, 90, 60...）
+        </p>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 入力エリア -->
+            <div class="lg:col-span-1">
+                <label for="scoreInput" class="block text-lg font-semibold text-gray-700 mb-2">
+                    点数データ入力
+                </label>
+                <textarea
+                    id="scoreInput"
+                    rows="10"
+                    placeholder="例:&#10;85&#10;72.5&#10;90&#10;60&#10;..."
+                    class="w-full p-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-indigo-500 transition duration-150 custom-scrollbar"
+                ></textarea>
+                <button
+                    id="calculateButton"
+                    class="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition duration-150 shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50"
+                >
+                    偏差値を計算する
+                </button>
+            </div>
+
+            <!-- 結果と統計情報 -->
+            <div class="lg:col-span-2 bg-indigo-50 p-6 rounded-xl border border-indigo-200">
+                <h2 class="text-2xl font-bold text-indigo-700 mb-4">統計情報と結果</h2>
+
+                <!-- 統計ボックス -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="p-3 bg-white rounded-lg shadow-sm text-center">
+                        <p class="text-sm text-gray-500">データ数 (n)</p>
+                        <p id="count" class="text-2xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-lg shadow-sm text-center">
+                        <p class="text-sm text-gray-500">平均値 (μ)</p>
+                        <p id="mean" class="text-2xl font-bold text-gray-800">0.00</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-lg shadow-sm text-center">
+                        <p class="text-sm text-gray-500">標準偏差 (σ)</p>
+                        <p id="stdDev" class="text-2xl font-bold text-gray-800">0.00</p>
+                    </div>
+                    <div class="p-3 bg-white rounded-lg shadow-sm text-center">
+                        <p class="text-sm text-gray-500">最高偏差値 (Max T)</p>
+                        <p id="maxTValue" class="text-2xl font-bold text-gray-800">0.00</p>
+                    </div>
+                </div>
+
+                <!-- 計算結果テーブル -->
+                <h3 class="text-xl font-semibold text-gray-700 mb-3">各データの偏差値</h3>
+                <div class="overflow-x-auto h-72 custom-scrollbar">
+                    <table class="min-w-full divide-y divide-indigo-200 bg-white rounded-lg shadow">
+                        <thead class="bg-indigo-100 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/4">#</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/2">点数 (x)</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider w-1/2">偏差値 (T)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="divide-y divide-gray-100">
+                            <tr><td colspan="3" class="text-center py-4 text-gray-500">データを入力して計算してください。</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- エラーメッセージ表示エリア -->
+                <div id="errorMessage" class="mt-4 p-3 bg-red-100 text-red-700 border border-red-300 rounded-lg hidden" role="alert">
+                    <!-- JavaScriptでエラーメッセージが挿入されます -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('calculateButton').addEventListener('click', calculateTValues);
+
+        /**
+         * 偏差値を計算するメイン関数
+         */
+        function calculateTValues() {
+            const input = document.getElementById('scoreInput').value;
+            const outputBody = document.getElementById('resultsTableBody');
+            const errorDiv = document.getElementById('errorMessage');
+            
+            // UIをリセット
+            outputBody.innerHTML = '';
+            errorDiv.classList.add('hidden');
+            document.getElementById('count').textContent = '0';
+            document.getElementById('mean').textContent = '0.00';
+            document.getElementById('stdDev').textContent = '0.00';
+            document.getElementById('maxTValue').textContent = '0.00';
+
+            // 1. 入力データのパースと検証
+            // 改行またはコンマ区切りでデータを分割し、数値に変換
+            const scores = input
+                .split(/[\n,]+/) // 改行またはコンマで分割
+                .map(s => s.trim()) // 前後の空白を除去
+                .filter(s => s !== '') // 空文字列を除去
+                .map(s => parseFloat(s)); // 数値に変換
+
+            // 無効な数値が含まれているかチェック
+            const invalidScores = scores.filter(s => isNaN(s));
+            if (invalidScores.length > 0) {
+                errorDiv.textContent = '入力には無効なデータ（数値ではないもの）が含まれています。数値または小数のみを入力してください。';
+                errorDiv.classList.remove('hidden');
+                return;
+            }
+
+            // データ数のチェック（最低2つ必要：標準偏差計算のため）
+            if (scores.length < 2) {
+                errorDiv.textContent = '計算には2つ以上の有効な点数データが必要です。';
+                errorDiv.classList.remove('hidden');
+                outputBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-500">データが不足しています。</td></tr>';
+                return;
+            }
+
+            // 2. 統計値の計算
+            const n = scores.length;
+            
+            // 平均値 (μ) の計算
+            const sum = scores.reduce((acc, score) => acc + score, 0);
+            const mean = sum / n;
+
+            // 分散 (Variance) の計算
+            const squaredDifferencesSum = scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0);
+            const variance = squaredDifferencesSum / n;
+
+            // 標準偏差 (σ) の計算 (不偏分散ではなく母集団の標準偏差を使用)
+            const stdDev = Math.sqrt(variance);
+
+            // 標準偏差が0の場合の処理 (全ての点数が同じ場合)
+            if (stdDev === 0) {
+                errorDiv.textContent = '全ての入力値が同じです。この場合、偏差値は全てのデータで 50.00 となります。';
+                errorDiv.classList.remove('hidden');
+                
+                // 全ての偏差値を50として表示
+                let maxT = 50.0;
+                scores.forEach((score, index) => {
+                    const tValue = 50.0;
+                    outputBody.appendChild(createRow(index + 1, score, tValue, tValue === maxT));
+                });
+                
+                // 統計情報を更新
+                document.getElementById('count').textContent = n;
+                document.getElementById('mean').textContent = mean.toFixed(2);
+                document.getElementById('stdDev').textContent = stdDev.toFixed(2);
+                document.getElementById('maxTValue').textContent = maxT.toFixed(2);
+                return;
+            }
+
+            // 3. 偏差値 (T値) の計算
+            let maxTValue = -Infinity;
+            const results = scores.map(score => {
+                // T = 50 + 10 * (x - μ) / σ
+                const t = 50 + 10 * (score - mean) / stdDev;
+                if (t > maxTValue) {
+                    maxTValue = t;
+                }
+                return { score, tValue: t };
+            });
+
+            // 4. 結果の表示
+            
+            // 統計情報を更新
+            document.getElementById('count').textContent = n;
+            document.getElementById('mean').textContent = mean.toFixed(2);
+            document.getElementById('stdDev').textContent = stdDev.toFixed(2);
+            document.getElementById('maxTValue').textContent = maxTValue.toFixed(2);
+
+            // 結果テーブルの行を作成して追加
+            results.forEach((result, index) => {
+                const isMax = result.tValue === maxTValue;
+                outputBody.appendChild(createRow(index + 1, result.score, result.tValue, isMax));
+            });
+
+            // 結果がない場合のフォールバック
+            if (results.length === 0) {
+                 outputBody.innerHTML = '<tr><td colspan="3" class="text-center py-4 text-gray-500">データがありません。</td></tr>';
+            }
+        }
+
+        /**
+         * 結果テーブルの行（<tr>）を作成するヘルパー関数
+         * @param {number} index - データ番号
+         * @param {number} score - 元の点数
+         * @param {number} tValue - 偏差値
+         * @param {boolean} isMax - 最高偏差値かどうか
+         * @returns {HTMLTableRowElement} 作成された<tr>要素
+         */
+        function createRow(index, score, tValue, isMax) {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-indigo-50 transition duration-100';
+            
+            // 最高偏差値の行を強調表示
+            if (isMax) {
+                row.classList.add('bg-yellow-50', 'font-semibold', 'text-indigo-800');
+            }
+
+            row.innerHTML = `
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${index}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${score.toFixed(2)}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-lg ${isMax ? 'text-red-600' : 'text-green-600'} font-bold">${tValue.toFixed(2)}</td>
+            `;
+            return row;
+        }
+
+        // 初期ロード時にデモデータをセット
+        window.onload = function() {
+            document.getElementById('scoreInput').value = '85\n72.5\n90\n60\n45\n78\n65\n95\n55';
+            calculateTValues(); // 初期データで計算を実行
+        };
+    </script>
+
+</body>
+</html>
