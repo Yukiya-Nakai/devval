@@ -78,6 +78,10 @@
                         <p class="text-sm text-gray-500">最高偏差値 (Max T)</p>
                         <p id="maxTValue" class="text-2xl font-bold text-gray-800">0.00</p>
                     </div>
+                    <div class="p-3 bg-white rounded-lg shadow-sm text-center">
+                        <p class="text-sm text-gray-500">中央値</p>
+                        <p id="median" class="text-2xl font-bold text-gray-800">0.00</p>
+                    </div>
                 </div>
 
                 <!-- 計算結果テーブル -->
@@ -107,6 +111,29 @@
 
     <script>
         document.getElementById('calculateButton').addEventListener('click', calculateTValues);
+        
+        /**
+         * 中央値を計算するヘルパー関数
+         * @param {number[]} scores - 点数の配列
+         * @returns {number} 中央値
+         */
+        function calculateMedian(scores) {
+            // データを昇順にソート
+            const sorted = [...scores].sort((a, b) => a - b);
+            const n = sorted.length;
+            
+            if (n === 0) return 0;
+
+            if (n % 2 === 1) {
+                // 奇数: 中央の要素
+                return sorted[Math.floor(n / 2)];
+            } else {
+                // 偶数: 中央2つの平均
+                const middle1 = sorted[n / 2 - 1];
+                const middle2 = sorted[n / 2];
+                return (middle1 + middle2) / 2;
+            }
+        }
 
         /**
          * 偏差値を計算するメイン関数
@@ -154,6 +181,9 @@
             // 平均値 (μ) の計算
             const sum = scores.reduce((acc, score) => acc + score, 0);
             const mean = sum / n;
+            
+            // 中央値 (Median) の計算
+            const median = calculateMedian(scores);
 
             // 分散 (Variance) の計算
             const squaredDifferencesSum = scores.reduce((acc, score) => acc + Math.pow(score - mean, 2), 0);
@@ -179,6 +209,7 @@
                 document.getElementById('mean').textContent = mean.toFixed(2);
                 document.getElementById('stdDev').textContent = stdDev.toFixed(2);
                 document.getElementById('maxTValue').textContent = maxT.toFixed(2);
+                document.getElementById('median').textContent = median.toFixed(2); // 中央値を更新
                 return;
             }
 
