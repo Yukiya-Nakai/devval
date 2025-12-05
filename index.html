@@ -181,7 +181,7 @@
             // 平均値 (μ) の計算
             const sum = scores.reduce((acc, score) => acc + score, 0);
             const mean = sum / n;
-            
+
             // 中央値 (Median) の計算
             const median = calculateMedian(scores);
 
@@ -231,6 +231,7 @@
             document.getElementById('mean').textContent = mean.toFixed(2);
             document.getElementById('stdDev').textContent = stdDev.toFixed(2);
             document.getElementById('maxTValue').textContent = maxTValue.toFixed(2);
+             document.getElementById('median').textContent = median.toFixed(2); // 中央値を更新
 
             // 結果テーブルの行を作成して追加
             results.forEach((result, index) => {
